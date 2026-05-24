@@ -57,11 +57,18 @@ interface RateLimitState {
 const loginAttempts: { [ip: string]: RateLimitState } = {};
 
 const getClientIp = (req: express.Request): string => {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (typeof forwarded === 'string') {
-    return forwarded.split(',')[0].trim();
+  try {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (typeof forwarded === 'string') {
+      return forwarded.split(',')[0].trim();
+    }
+    if (Array.isArray(forwarded) && forwarded.length > 0) {
+      return forwarded[0].trim();
+    }
+    return req.ip || (req.socket ? req.socket.remoteAddress : undefined) || 'unknown';
+  } catch (e) {
+    return 'unknown';
   }
-  return req.ip || req.socket.remoteAddress || 'unknown';
 };
 
 // Rate limit helper check
@@ -149,6 +156,10 @@ const isPasswordCorrect = (attempt: string): boolean => {
 // Log admin action helper
 const logAdminAction = async (action: string, ip: string) => {
   try {
+    if (!adminDb) {
+      console.log(`[Admin Log Bypass] adminDb is null. Action: ${action} from IP: ${ip}`);
+      return;
+    }
     await adminDb.collection('admin_logs').add({
       action,
       timestamp: new Date().toISOString(),
@@ -161,31 +172,41 @@ const logAdminAction = async (action: string, ip: string) => {
 
 // API Route: Verify admin password
 app.post('/api/admin/verify', async (req, res) => {
-  const ip = getClientIp(req);
-  const { password } = req.body;
-  
-  const limit = checkRateLimit(ip);
-  if (!limit.allowed) {
-    await logAdminAction(`ADMIN LOGIN LOCKED - Bruteforce protection triggered from IP`, ip);
-    return res.status(429).json({
+  try {
+    const ip = getClientIp(req);
+    const { password } = req.body;
+    
+    console.log(`[Verify API] Verifying password attempt for IP: ${ip}`);
+    
+    const limit = checkRateLimit(ip);
+    if (!limit.allowed) {
+      await logAdminAction(`ADMIN LOGIN LOCKED - Bruteforce protection triggered from IP`, ip);
+      return res.status(429).json({
+        success: false,
+        message: `Too many failed attempts. Temporary lockout. Try again in ${limit.remainingSec}s.`
+      });
+    }
+    
+    if (isPasswordCorrect(password)) {
+      recordAttempt(ip, true);
+      await logAdminAction(`ADMIN LOGIN SUCCESS`, ip);
+      return res.json({ success: true, message: 'Password matches' });
+    } else {
+      recordAttempt(ip, false);
+      const state = loginAttempts[ip];
+      const trackingLeft = state ? (5 - state.count) : 5;
+      await logAdminAction(`ADMIN LOGIN FAIL - Incorrect password attempted`, ip);
+      return res.status(401).json({
+        success: false,
+        message: 'Incorrect password',
+        attemptsRemaining: trackingLeft > 0 ? trackingLeft : 0
+      });
+    }
+  } catch (err: any) {
+    console.error('[Verify API Critical Error]', err);
+    return res.status(500).json({
       success: false,
-      message: `Too many failed attempts. Temporary lockout. Try again in ${limit.remainingSec}s.`
-    });
-  }
-  
-  if (isPasswordCorrect(password)) {
-    recordAttempt(ip, true);
-    await logAdminAction(`ADMIN LOGIN SUCCESS`, ip);
-    return res.json({ success: true, message: 'Password matches' });
-  } else {
-    recordAttempt(ip, false);
-    const state = loginAttempts[ip];
-    const trackingLeft = state ? (5 - state.count) : 5;
-    await logAdminAction(`ADMIN LOGIN FAIL - Incorrect password attempted`, ip);
-    return res.status(401).json({
-      success: false,
-      message: 'Incorrect password',
-      attemptsRemaining: trackingLeft > 0 ? trackingLeft : 0
+      message: err.message || 'An internal server error occurred while verifying the credentials.'
     });
   }
 });
