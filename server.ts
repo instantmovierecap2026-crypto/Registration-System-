@@ -101,26 +101,48 @@ const recordAttempt = (ip: string, success: boolean) => {
 
 // Verify Admin password middleware/helper
 const isPasswordCorrect = (attempt: string): boolean => {
-  if (!attempt) return false;
+  console.log('[Password Check] Raw attempt:', JSON.stringify(attempt));
+  if (!attempt) {
+    console.log('[Password Check] Attempt is empty or falsy.');
+    return false;
+  }
   
   // Clean user attempt: strip whitespace and surrounding double/single quotes
   const cleanAttempt = attempt.trim().replace(/^["']|["']$/g, '').trim();
   const defaultFallback = 'Nahom@110108';
   
-  // If attempt matches the standard preset backup, allow access
-  if (cleanAttempt === defaultFallback || attempt === defaultFallback) {
+  console.log('[Password Check] cleanAttempt:', JSON.stringify(cleanAttempt));
+  console.log('[Password Check] comparing standard fallback:', JSON.stringify(defaultFallback));
+  
+  // If attempt matches the standard preset backup (case-insensitively or exactly), allow access
+  if (
+    cleanAttempt === defaultFallback || 
+    attempt === defaultFallback ||
+    cleanAttempt.toLowerCase() === defaultFallback.toLowerCase()
+  ) {
+    console.log('[Password Check] Match found with default backup password (case-insensitive checks passed)!');
     return true;
   }
   
   // Extract and clean ADMIN_PASSWORD from process.env if provided
   let envPass = process.env.ADMIN_PASSWORD;
+  console.log('[Password Check] process.env.ADMIN_PASSWORD is set:', !!envPass);
   if (envPass) {
     const cleanEnv = envPass.trim().replace(/^["']|["']$/g, '').trim();
-    if (cleanEnv && (cleanAttempt === cleanEnv || attempt === envPass)) {
+    console.log('[Password Check] comparing with envPass cleanEnv:', JSON.stringify(cleanEnv));
+    if (
+      cleanEnv && (
+        cleanAttempt === cleanEnv || 
+        attempt === envPass ||
+        cleanAttempt.toLowerCase() === cleanEnv.toLowerCase()
+      )
+    ) {
+      console.log('[Password Check] Match found with process.env.ADMIN_PASSWORD!');
       return true;
     }
   }
   
+  console.log('[Password Check] Identification failed. No match with default or env password.');
   return false;
 };
 
