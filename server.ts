@@ -10,21 +10,29 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // Load Firebase applet configuration
-let firebaseConfig: any;
+let firebaseConfig: any = null;
 try {
-  const rawConfig = fs.readFileSync(path.resolve('./firebase-applet-config.json'), 'utf-8');
-  firebaseConfig = JSON.parse(rawConfig);
+  if (process.env.FIREBASE_APPLET_CONFIG) {
+    firebaseConfig = JSON.parse(process.env.FIREBASE_APPLET_CONFIG);
+  } else if (process.env.FIREBASE_PROJECT_ID) {
+    firebaseConfig = {
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      firestoreDatabaseId: process.env.FIREBASE_DATABASE_ID || undefined
+    };
+  } else {
+    const rawConfig = fs.readFileSync(path.resolve('./firebase-applet-config.json'), 'utf-8');
+    firebaseConfig = JSON.parse(rawConfig);
+  }
 } catch (err) {
-  console.error("Failed to read firebase-applet-config.json", err);
-  process.exit(1);
+  console.warn("Failed to read firebase-applet-config.json or parse environment alternatives", err);
 }
 
 // Initialize Firebase Admin SDK
 // This will connect securely bypassing standard Firestore rules allowing server-controlled modifications
-const firebaseAdminApp = initializeApp({
+const firebaseAdminApp = firebaseConfig ? initializeApp({
   projectId: firebaseConfig.projectId,
-});
-const adminDb = getFirestore(firebaseAdminApp, firebaseConfig.firestoreDatabaseId);
+}) : null;
+const adminDb = (firebaseConfig && firebaseAdminApp) ? getFirestore(firebaseAdminApp, firebaseConfig.firestoreDatabaseId) : null;
 
 // Initialize Gemini Client
 const ai = new GoogleGenAI({
@@ -598,6 +606,10 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Chercher Secondary School full-stack server running on http://localhost:${PORT}`);
-});
+if (process.env.NETLIFY !== 'true') {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Chercher Secondary School full-stack server running on http://localhost:${PORT}`);
+  });
+}
+
+export default app;
