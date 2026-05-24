@@ -1,0 +1,64 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global catch-all default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Registrations collection rules
+    match /registrations/{registrationId} {
+      // Allow student creations with strict schema checks & initial pending state constraints
+      allow create: if request.resource.data.status == "Pending Review"
+                    && request.resource.data.class_assignment == null
+                    && request.resource.data.rejection_reason == null
+                    && request.resource.data.id == registrationId
+                    && request.resource.data.tracking_id == registrationId
+                    && request.resource.data.full_name is string
+                    && request.resource.data.full_name.size() > 0
+                    && request.resource.data.full_name.size() <= 100
+                    && request.resource.data.age is int
+                    && request.resource.data.age >= 10
+                    && request.resource.data.age <= 25
+                    && request.resource.data.sex is string
+                    && (request.resource.data.sex == 'Male' || request.resource.data.sex == 'Female')
+                    && request.resource.data.promoted_grade is int
+                    && (request.resource.data.promoted_grade == 10 || request.resource.data.promoted_grade == 11 || request.resource.data.promoted_grade == 12)
+                    && request.resource.data.average is number
+                    && request.resource.data.average >= 0
+                    && request.resource.data.average <= 100
+                    && request.resource.data.transcript_url is string
+                    && request.resource.data.transcript_url.size() > 0
+                    && request.resource.data.receipt_url is string
+                    && request.resource.data.receipt_url.size() > 0
+                    && request.resource.data.payment_method is string
+                    && (request.resource.data.payment_method == 'CBE' || request.resource.data.payment_method == 'SINQEE BANK' || request.resource.data.payment_method == 'TELEBIRR');
+
+      // Students retrieve registration only via private tracking ID (get)
+      allow get: if true;
+      
+      // Deny bulk scanning / listing to avoid leakage
+      allow list: if false;
+      
+      // Updates and deletes are disallowed for standard clients (proxy-controlled via server)
+      allow update, delete: if false;
+    }
+
+    // Classes can be read by clients, but modified strictly on server-side
+    match /classes/{classId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Grade settings configured only via admin dashboard proxy
+    match /grade_settings/{gradeId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Admin Logs completely restricted from UI direct database accesses
+    match /admin_logs/{logId} {
+      allow read, write: if false;
+    }
+  }
+}

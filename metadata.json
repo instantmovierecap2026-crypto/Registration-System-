@@ -1,0 +1,8 @@
+{
+  "name": "Chercher Secondary School Registration",
+  "description": "A scalable, production-ready, and AI-powered registration and class management system for Chercher Secondary School with automated class balancing and an administrative control panel.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,78 @@
+{
+  "entities": {
+    "Registration": {
+      "title": "Registration",
+      "description": "Student registration applications",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "full_name": { "type": "string" },
+        "age": { "type": "integer" },
+        "sex": { "type": "string" },
+        "promoted_grade": { "type": "integer" },
+        "average": { "type": "number" },
+        "transcript_url": { "type": "string" },
+        "receipt_url": { "type": "string" },
+        "payment_method": { "type": "string" },
+        "status": { "type": "string", "enum": ["Pending Review", "Approved", "Rejected"] },
+        "class_assignment": { "type": "string" },
+        "rejection_reason": { "type": "string" },
+        "tracking_id": { "type": "string" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "full_name", "age", "sex", "promoted_grade", "average", "transcript_url", "receipt_url", "payment_method", "status", "tracking_id", "created_at"]
+    },
+    "GradeSetting": {
+      "title": "GradeSetting",
+      "description": "Settings for students per class per grade",
+      "type": "object",
+      "properties": {
+        "grade": { "type": "string" },
+        "students_per_class": { "type": "integer" }
+      },
+      "required": ["grade", "students_per_class"]
+    },
+    "Class": {
+      "title": "Class",
+      "description": "Formed classes for students",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "grade": { "type": "integer" },
+        "class_name": { "type": "string" },
+        "class_type": { "type": "string", "enum": ["Special", "Regular"] },
+        "total_students": { "type": "integer" }
+      },
+      "required": ["id", "grade", "class_name", "class_type", "total_students"]
+    },
+    "AdminLog": {
+      "title": "AdminLog",
+      "description": "Logs of admin access attempts and core runs",
+      "type": "object",
+      "properties": {
+        "action": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "ip_address": { "type": "string" }
+      },
+      "required": ["action", "timestamp", "ip_address"]
+    }
+  },
+  "firestore": {
+    "registrations": {
+      "schema": "Registration",
+      "description": "Collection of student registrations"
+    },
+    "grade_settings": {
+      "schema": "GradeSetting",
+      "description": "Configuration settings for classes in each grade"
+    },
+    "classes": {
+      "schema": "Class",
+      "description": "Collection of created classes"
+    },
+    "admin_logs": {
+      "schema": "AdminLog",
+      "description": "Audit trails for admin interactions"
+    }
+  }
+}
